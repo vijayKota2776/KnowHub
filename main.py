@@ -478,7 +478,107 @@ async def websocket_notifications(websocket: WebSocket, token: str = Query(...))
         await notification_service.unregister_connection(user_id, websocket)
 
 
+def seed_mock_data():
+    """Seeds the SQL, NoSQL, Graph, and Vector databases with realistic mock data."""
+    try:
+        logger.info("Creating mock users...")
+        u_alice = user_service.register_user("alice_eng", "alice@knowhub.io", "securepass1")
+        u_bob = user_service.register_user("bob_science", "bob@knowhub.io", "securepass2")
+        u_carol = user_service.register_user("carol_math", "carol@knowhub.io", "securepass3")
+        u_dave = user_service.register_user("dave_celeb", "dave@knowhub.io", "securepass4")
+
+        alice_id = u_alice["user_id"]
+        bob_id = u_bob["user_id"]
+        carol_id = u_carol["user_id"]
+        dave_id = u_dave["user_id"]
+
+        logger.info("Creating mock topics...")
+        user_service.create_topic("python", "Python", "Python programming language, optimization, and runtime internals.")
+        user_service.create_topic("ml", "Machine Learning", "Neural networks, regression, transformers, and training pipelines.")
+        user_service.create_topic("system_design", "System Design", "Scalability, microservices, load balancing, and distributed consensus.")
+        user_service.create_topic("databases", "Databases", "Relational database indexing, sharding, replication, and NoSQL stores.")
+
+        logger.info("Creating social follows and subscriptions...")
+        user_service.follow_user(alice_id, bob_id)
+        user_service.follow_user(alice_id, dave_id)
+        user_service.follow_user(bob_id, dave_id)
+        user_service.follow_user(carol_id, bob_id)
+
+        user_service.follow_topic(alice_id, "python")
+        user_service.follow_topic(alice_id, "system_design")
+        user_service.follow_topic(bob_id, "ml")
+        user_service.follow_topic(bob_id, "system_design")
+        user_service.follow_topic(carol_id, "databases")
+        user_service.follow_topic(dave_id, "system_design")
+
+        logger.info("Creating mock questions...")
+        q1 = qa_service.post_question(
+            author_id=alice_id,
+            title="How does Python garbage collection work under the hood?",
+            content="I am curious about reference counting, cyclic garbage collection, and generational thresholds in CPython. How does it handle cycles?",
+            topic_ids=["python"]
+        )
+        q2 = qa_service.post_question(
+            author_id=bob_id,
+            title="Best practices for system design interviews?",
+            content="When designing high-throughput services, how should I structure the conversation? Should I start with API design or database schema?",
+            topic_ids=["system_design"]
+        )
+        q3 = qa_service.post_question(
+            author_id=dave_id,
+            title="How to design a scalable database sharding solution?",
+            content="We have a highly transactional table that has outgrown a single Postgres node. What sharding keys work best, and how do we handle dynamic re-sharding?",
+            topic_ids=["databases", "system_design"]
+        )
+
+        logger.info("Creating mock answers...")
+        a1 = qa_service.post_answer(
+            question_id=q1["question_id"],
+            author_id=bob_id,
+            content="CPython relies on reference counting as its primary GC mechanism. When an object's reference count drops to zero, it is deallocated immediately. To handle reference cycles (e.g. object A referencing B, and B referencing A), CPython runs a cyclic garbage collector. It groups objects into three generations (Gen 0, 1, and 2) based on survival rates and inspects them using double-linked lists to detect isolated islands of unreferenced cycles."
+        )
+        a2 = qa_service.post_answer(
+            question_id=q1["question_id"],
+            author_id=carol_id,
+            content="Yes, and it is worth noting that you can tune these thresholds using the native `gc` module in Python. For example, `gc.set_threshold()` lets you adjust when generation collection runs. You can also manually call `gc.collect()` to trigger a collection cycle, which is common in memory-constrained environments or background worker loops."
+        )
+        a3 = qa_service.post_answer(
+            question_id=q2["question_id"],
+            author_id=dave_id,
+            content="Start by clarifying requirements (functional and non-functional RPS, DAU, latency). Then draft the high-level design (gateway, load balancers, database layers) before diving into deep bottleneck analysis. Never jump straight to database schemas without establishing the scale targets!"
+        )
+
+        logger.info("Adding mock votes...")
+        # Upvotes for Bob's excellent GC answer
+        qa_service.vote_answer(q1["question_id"], a1["answer_id"], alice_id, "upvote")
+        qa_service.vote_answer(q1["question_id"], a1["answer_id"], carol_id, "upvote")
+        qa_service.vote_answer(q1["question_id"], a1["answer_id"], dave_id, "upvote")
+
+        # Downvote for Carol's answer
+        qa_service.vote_answer(q1["question_id"], a2["answer_id"], bob_id, "downvote")
+
+        logger.info("Adding mock comments...")
+        qa_service.post_comment(parent_id=q1["question_id"], parent_type="question", author_id=carol_id, content="Great question! I was also wondering about the overhead of cyclic GC.")
+        qa_service.post_comment(parent_id=a1["answer_id"], parent_type="answer", author_id=alice_id, content="This clears up generational thresholds perfectly. Thanks Bob!")
+
+        logger.info("Mock database seeding completed successfully!")
+    except Exception as e:
+        logger.error("Failed to seed mock data", error=str(e))
+
+
 @app.on_event("startup")
 async def startup_event():
     notification_service.start()
+    
+    # Run seeder if database has no users
+    try:
+        with sql_db._get_connection() as conn:
+            row = conn.execute("SELECT COUNT(*) as cnt FROM users").fetchone()
+            user_count = row["cnt"] if row else 0
+        if user_count == 0:
+            seed_mock_data()
+    except Exception as e:
+        logger.error("Database check failed during startup", error=str(e))
+        
     logger.info("KnowHub API started", version="1.0.0", docs="http://localhost:8000/docs")
+
