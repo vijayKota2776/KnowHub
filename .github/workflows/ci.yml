@@ -47,13 +47,26 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Log in to Docker Hub
+        if: ${{ secrets.DOCKER_USERNAME != '' }}
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Build and push Docker image
+      - name: Build Docker image (Verification)
+        if: ${{ secrets.DOCKER_USERNAME == '' }}
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: false
+          tags: knowhub-api:latest
+
+      - name: Build and push Docker image (Production)
+        if: ${{ secrets.DOCKER_USERNAME != '' }}
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -61,3 +74,4 @@ jobs:
           tags: |
             ${{ secrets.DOCKER_USERNAME }}/knowhub-api:latest
             ${{ secrets.DOCKER_USERNAME }}/knowhub-api:${{ github.sha }}
+
