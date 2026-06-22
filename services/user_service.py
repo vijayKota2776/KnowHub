@@ -1,8 +1,21 @@
 import time
 import hashlib
+import asyncio
 from typing import Dict, Any, List
 from database.sql_db import SQLDatabase
 from database.graph_db import GraphDatabase
+from services.event_bus import EventBus
+
+
+def _fire_event(event_type: str, payload: Dict[str, Any]):
+    """Schedule an EventBus.publish coroutine on the running event loop from a sync context."""
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            loop.call_soon_threadsafe(lambda: asyncio.ensure_future(EventBus.publish(event_type, payload)))
+    except RuntimeError:
+        pass  # No event loop — skip publishing
+
 
 class UserService:
     """
@@ -57,12 +70,10 @@ class UserService:
             self.cdb.delete(f"profile:{follower_id}")
             self.cdb.delete(f"profile:{followee_id}")
         # Publish follow event
-        import asyncio
-        from services.event_bus import EventBus
-        asyncio.create_task(EventBus.publish('user_followed', {
+        _fire_event('user_followed', {
             'follower_id': follower_id,
             'followee_id': followee_id
-        }))
+        })
 
     def follow_topic(self, user_id: str, topic_id: str) -> None:
         if not self.sdb.get_user(user_id):
