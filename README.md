@@ -1,154 +1,116 @@
-# KnowHub — Production-Grade Knowledge-Sharing Platform
+# KnowHub — Production-Grade Knowledge Sharing Platform
 
-A fully functional knowledge-sharing platform API (Quora/Stack Overflow hybrid) built with **FastAPI**, featuring multi-database persistence, real-time feed generation, and hybrid search.
+KnowHub is an advanced, production-grade knowledge-sharing platform (combining features of Stack Overflow and Quora) built using **FastAPI** (Python) and **React** (Vite + JavaScript). 
 
----
-
-## Architecture Overview
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    FastAPI Ingress Gateway                   │
-│              (CORS, Rate Limiting, JWT Auth)                 │
-├────────────┬────────────┬──────────────┬───────────────────┤
-│ UserService│ QAService  │ FeedService  │ SearchService     │
-├────────────┴────────────┴──────────────┴───────────────────┤
-│  SQLite      File JSON     Graph JSON     TF-IDF Vector    │
-│  (PostgreSQL) (Cassandra)  (Neo4j)        (Qdrant)         │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### Core Components
-
-| Component | Simulates | Purpose |
-|-----------|-----------|---------|
-| `database/sql_db.py` | PostgreSQL | Users, Questions, Topics (ACID, FK constraints) |
-| `database/nosql_db.py` | Cassandra | Answers, Comments, Feed timelines (Partition-key files) |
-| `database/graph_db.py` | Neo4j | Social follows, topic follows, collaborative filtering |
-| `database/vector_db.py` | Qdrant | TF-IDF vector index with Cosine similarity search |
-
-### Key Algorithms
-
-- **Wilson Score Interval** — Statistically robust answer ranking
-- **Hybrid Push-Pull Feed** — Push for regular users, Pull for celebrities/topics
-- **Hybrid Search Fusion** — Lexical (Jaccard) + Semantic (TF-IDF Cosine) with configurable weights
-- **Collaborative Filtering** — Topic recommendations based on social graph
+It is designed to demonstrate full-stack software architecture, multi-database persistence (Polyglot Persistence), hybrid search, high-throughput caching, real-time message distribution (WebSockets), and observability.
 
 ---
 
-## Quick Start
+## 🛠️ Tech Stack & Architecture
 
-### 1. Install Dependencies
+```
+                       ┌─────────────────────────────────────────────────────────────┐
+                       │                     FastAPI Ingress Gateway                 │
+                       │               (CORS, Rate Limiting, JWT Auth)               │
+                       ├────────────┬────────────┬──────────────┬────────────────────┤
+                       │ UserService│ QAService  │ FeedService  │ SearchService      │
+                       ├────────────┴────────────┴──────────────┴────────────────────┤
+                       │  SQLite      File JSON     Graph JSON     TF-IDF Vector     │
+                       │  (PostgreSQL) (Cassandra)  (Neo4j)        (Qdrant)          │
+                       └─────────────────────────────────────────────────────────────┘
+```
 
+- **Backend Gateway**: FastAPI (routing, validation, middleware, rate-limiting, and lifespans).
+- **Frontend App**: React (Vite, single-page router, clean CSS styling, Toast systems, dynamic rendering).
+- **Databases (Polyglot Persistence)**:
+  - **SQL (SQLite)**: Credentials, metadata, topics.
+  - **NoSQL (JSON Store)**: Partitioned answers and comments.
+  - **Graph DB (JSON List)**: Social follows and subscriptions.
+  - **Vector DB (TF-IDF)**: Text vectorization and search.
+- **Real-Time Layer**: Asynchronous EventBus (fan-out pub/sub) & WebSockets.
+- **Monitoring**: Prometheus instrumentation & structured JSON logging (Loguru).
+
+---
+
+## 📂 Project Directories
+
+- [main.py](file:///Users/vijaykota/Documents/KnowHub/main.py) — API Gateway, endpoints, and websocket connections.
+- [database/](file:///Users/vijaykota/Documents/KnowHub/database/) — Database adapters (SQL, NoSQL, Graph, Vector).
+- [services/](file:///Users/vijaykota/Documents/KnowHub/services/) — Business logic facades (User, QA, Feed, Search).
+- [frontend/](file:///Users/vijaykota/Documents/KnowHub/frontend/) — Single-page React user interface.
+- [tests/](file:///Users/vijaykota/Documents/KnowHub/tests/) — Pytest suite covering all core layers.
+- [docker-compose.yml](file:///Users/vijaykota/Documents/KnowHub/docker-compose.yml) — Containerized deployment.
+- [knowhub.docx](file:///Users/vijaykota/Documents/KnowHub/knowhub.docx) — Detailed Word documentation.
+
+---
+
+## 🚀 How to Run Locally
+
+### 1. Prerequisite Setup
+Ensure you have **Python 3.12+** and **Node.js 18+** installed.
+
+Clone the repository locally:
 ```bash
-pip install fastapi uvicorn pydantic[email] requests
+git clone https://github.com/vijayKota2776/KnowHub.git
+cd KnowHub
 ```
 
-### 2. Start the Server
-
+Configure your local environments:
 ```bash
-cd /path/to/KnowHub
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
+cp .env.example .env
 ```
 
-### 3. Open API Documentation
+---
 
-Navigate to: **http://localhost:8000/docs** (Swagger UI)
+### 2. Start the Backend Server
+1. Create and activate a Python virtual environment:
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # On Windows use: venv\Scripts\activate
+   ```
+2. Install python requirements:
+   ```bash
+   pip install -r requirements.txt
+   ```
+3. Run the uvicorn development server:
+   ```bash
+   uvicorn main:app --reload --host 127.0.0.1 --port 8000
+   ```
+4. Access the API documentation at: [http://localhost:8000/docs](http://localhost:8000/docs) (Swagger UI).
 
-### 4. Run Integration Tests
+---
 
-In a second terminal:
+### 3. Start the Frontend App
+1. Navigate to the frontend directory:
+   ```bash
+   cd frontend
+   ```
+2. Install packages:
+   ```bash
+   npm install
+   ```
+3. Start the Vite dev server:
+   ```bash
+   npm run dev
+   ```
+4. Open your browser and navigate to: [http://localhost:5173](http://localhost:5173).
 
+---
+
+### 4. Running the Test Suite
+Ensure the backend is not running or runs on a separate database. Execute:
 ```bash
-cd /path/to/KnowHub
-python test_api.py
+pytest tests/ -v
 ```
 
 ---
 
-## API Endpoints
+## 🐳 Run with Docker (Recommended)
 
-### Auth
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| POST | `/api/v1/auth/register` | ❌ | Register new user |
-| POST | `/api/v1/auth/login` | ❌ | Login and get token |
-
-### Users
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| GET | `/api/v1/users/{user_id}` | ✅ | Get user profile |
-| POST | `/api/v1/users/{user_id}/follow` | ✅ | Follow a user |
-
-### Topics
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| POST | `/api/v1/topics` | ✅ | Create a topic |
-| POST | `/api/v1/topics/{topic_id}/follow` | ✅ | Follow a topic |
-
-### Q&A
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| POST | `/api/v1/questions` | ✅ | Post a question |
-| GET | `/api/v1/questions/{question_id}` | ❌ | Get question + ranked answers |
-| POST | `/api/v1/questions/{qid}/answers` | ✅ | Post an answer |
-| POST | `/api/v1/questions/{qid}/answers/{aid}/vote` | ✅ | Vote on answer |
-| POST | `/api/v1/questions/{qid}/comments` | ✅ | Comment on question |
-| GET | `/api/v1/questions/{qid}/comments` | ❌ | Get question comments |
-
-### Feed
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| GET | `/api/v1/feed` | ✅ | Get personalized feed |
-
-### Search
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| GET | `/api/v1/search?q=...` | ❌ | Hybrid search |
-
-### Recommendations
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| GET | `/api/v1/recommendations/topics` | ✅ | Topic recommendations |
-
----
-
-## Project Structure
-
+To run the backend, database storage, and Prometheus sidecar collectively inside container networks:
+```bash
+docker compose up --build -d
 ```
-KnowHub/
-├── main.py                    # FastAPI application entry point
-├── requirements.txt           # Python dependencies
-├── test_api.py               # Integration test suite
-├── README.md                 # This file
-├── system_design_report.md   # Full architecture documentation
-├── database/
-│   ├── __init__.py
-│   ├── sql_db.py             # SQLite adapter (PostgreSQL sim)
-│   ├── nosql_db.py           # File-based JSON (Cassandra sim)
-│   ├── graph_db.py           # Adjacency-list (Neo4j sim)
-│   └── vector_db.py          # TF-IDF vector index (Qdrant sim)
-├── models/
-│   ├── __init__.py
-│   └── schemas.py            # Pydantic request/response models
-├── services/
-│   ├── __init__.py
-│   ├── user_service.py       # User registration, auth, social graph
-│   ├── qa_service.py         # Questions, answers, voting, ranking
-│   ├── feed_service.py       # Hybrid Push-Pull feed engine
-│   └── search_service.py     # Hybrid lexical+semantic search
-└── data/                     # Auto-created persistent storage
-    ├── knowhub.db            # SQLite database
-    ├── graph.json            # Social graph state
-    ├── vector.json           # Vector index state
-    └── nosql/                # Partitioned JSON files
-        ├── answers/
-        ├── comments/
-        └── feeds/
-```
-
----
-
-## Design Decisions
-
-For the full 18-section architecture report, see [`system_design_report.md`](system_design_report.md).
+- **Backend API**: `http://localhost:8000`
+- **Prometheus Dashboard**: `http://localhost:9090`
+- **Metrics Scraping endpoint**: `http://localhost:8000/metrics`

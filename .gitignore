@@ -46,3 +46,7 @@ htmlcov/
 frontend/node_modules/
 frontend/dist/
 frontend/.vite/
+
+# Private coursework files
+viva.md
+
